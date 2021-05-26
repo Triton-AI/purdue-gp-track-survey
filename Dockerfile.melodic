@@ -1,0 +1,65 @@
+FROM osrf/ros:melodic-desktop
+LABEL maintainer="Siddharth Saha <sisaha@ucsd.edu>"
+
+
+USER root
+
+# nvidia-container-runtime
+ENV NVIDIA_VISIBLE_DEVICES \
+    ${NVIDIA_VISIBLE_DEVICES:-all}
+ENV NVIDIA_DRIVER_CAPABILITIES \
+    ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+
+RUN apt-get update --fix-missing \
+ && apt-get install -y \
+    wget \
+    lsb-release \
+    sudo \
+    python3-pip \
+    git \
+    vim \
+    software-properties-common \
+    ros-melodic-pcl-ros \
+    ros-melodic-ddynamic-reconfigure
+
+RUN python3 -m pip install --upgrade pip
+
+RUN apt install -y \
+    cmake
+
+RUN git clone https://github.com/Livox-SDK/Livox-SDK.git && \
+    cd Livox-SDK && \
+    cd build && cmake .. && \
+    make && \
+    make install
+
+RUN apt-key adv --keyserver keys.gnupg.net --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
+    add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo bionic main" -u && \
+    apt-get update && \
+    apt-get install -y librealsense2-dkms && \
+    apt-get install -y librealsense2-utils && \
+    apt-get install -y librealsense2-dev && \
+    apt-get install -y librealsense2-dbg
+
+RUN apt-get install -y nano rsync zip
+
+WORKDIR /root/ros_ws/
+SHELL ["/bin/bash", "-c"]
+RUN mkdir src/
+
+RUN cd src && \
+    git clone https://github.com/Livox-SDK/livox_ros_driver.git livox_ros_driver && \
+    git clone https://github.com/ENSTABretagneRobotics/razor_imu_9dof.git
+RUN chmod +x src/razor_imu_9dof/nodes/imu_node.py
+
+RUN cd src && \
+    git clone https://github.com/IntelRealSense/realsense-ros.git && \
+    cd realsense-ros && \
+    git checkout `git tag | sort -V | grep -P "^2.\d+\.\d+" | tail -1`
+
+RUN echo 'source /opt/ros/melodic/setup.bash' >> ~/.bashrc
+RUN echo 'source /root/ros_ws/devel/setup.bash' >> ~/.bashrc
+COPY src/razor_imu_9dof/config/my_razor.yaml src/razor_imu_9dof/config
+RUN cd /root/ros_ws && \
+    source /opt/ros/melodic/setup.bash && \
+    catkin_make

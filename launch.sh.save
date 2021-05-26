@@ -1,0 +1,9 @@
+# !/bin/bash
+
+sudo docker run --name purduesurvey -it --rm \
+
+  --privileged \
+  --network=host \
+  --mount type=volume,source=purdue-survey,dst=/root/ros_ws \
+--mount type=volume,source=socalracer-devel,dst=/root
+  haoru233/purdue-gp-track-survey 
