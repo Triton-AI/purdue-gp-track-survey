@@ -1,4 +1,4 @@
-FROM osrf/ros:melodic-desktop
+FROM arm64v8/ros:melodic
 LABEL maintainer="Siddharth Saha <sisaha@ucsd.edu>"
 
 
@@ -10,8 +10,8 @@ ENV NVIDIA_VISIBLE_DEVICES \
 ENV NVIDIA_DRIVER_CAPABILITIES \
     ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
 
-RUN apt-get update --fix-missing \
- && apt-get install -y \
+RUN apt-get update --fix-missing && \
+    apt-get install -y \
     wget \
     lsb-release \
     sudo \
@@ -20,7 +20,9 @@ RUN apt-get update --fix-missing \
     vim \
     software-properties-common \
     ros-melodic-pcl-ros \
-    ros-melodic-ddynamic-reconfigure
+    ros-melodic-ddynamic-reconfigure \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu 
 
 RUN python3 -m pip install --upgrade pip
 
@@ -29,20 +31,20 @@ RUN apt install -y \
 
 RUN git clone https://github.com/Livox-SDK/Livox-SDK.git && \
     cd Livox-SDK && \
-    cd build && cmake .. && \
+    cd build && \
+    cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ && \
     make && \
     make install
-
-RUN apt-get install -y nano rsync zip
 
 RUN apt-key adv --keyserver keys.gnupg.net --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
     add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo bionic main" -u && \
     apt-get update && \
-    apt-get install -y librealsense2-dkms librealsense2-utils \
-                        librealsense2-dev librealsense2-dbg \
-                        ros-melodic-ublox ros-melodic-ublox-gps \
-                        ros-melodic-ublox-msgs ros-melodic-ublox-serialization 
+    apt-get install -y librealsense2-dkms && \
+    apt-get install -y librealsense2-utils && \
+    apt-get install -y librealsense2-dev && \
+    apt-get install -y librealsense2-dbg
 
+RUN apt-get install -y nano rsync zip
 
 WORKDIR /root/ros_ws/
 SHELL ["/bin/bash", "-c"]
@@ -56,13 +58,11 @@ RUN chmod +x src/razor_imu_9dof/nodes/imu_node.py
 RUN cd src && \
     git clone https://github.com/IntelRealSense/realsense-ros.git && \
     cd realsense-ros && \
-    git checkout `git tag | sort -V | grep -P "^2.\d+\.\d+" | tail -1`&& \
-    cd .. && git clone https://github.com/enwaytech/reach_rs_ros_driver.git
+    git checkout `git tag | sort -V | grep -P "^2.\d+\.\d+" | tail -1`
 
 RUN echo 'source /opt/ros/melodic/setup.bash' >> ~/.bashrc
 RUN echo 'source /root/ros_ws/devel/setup.bash' >> ~/.bashrc
 COPY src/razor_imu_9dof/config/my_razor.yaml src/razor_imu_9dof/config
-RUN rosdep install --from-paths src --ignore-src -r -y
 RUN cd /root/ros_ws && \
     source /opt/ros/melodic/setup.bash && \
     catkin_make
